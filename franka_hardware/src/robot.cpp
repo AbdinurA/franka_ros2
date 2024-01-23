@@ -134,17 +134,24 @@ void Robot::initializeContinuousReading() {
   assert(isStopped());
   stopped_ = false;
   const auto kReading = [this]() {
+	  while (true) {
     try {
-      robot_->read([this](const franka::RobotState& state) {
+      // This will continously call the callback until the user press p-stop (or anything else that will trigger the robot fault)
+      robot_->read(
+		      // callback
+		      [this](const franka::RobotState& state) {
         {
           std::lock_guard<std::mutex> lock(read_mutex_);
           current_state_ = state;
         }
         return !finish_;
-      });
+      }
+      // callback end
+      );
     } catch (const franka::ControlException& e) {
       RCLCPP_ERROR_STREAM(rclcpp::get_logger("franka_robot"), e.what());
       has_error_ = true;
+    }
     }
   };
   control_thread_ = std::make_unique<std::thread>(kReading);
